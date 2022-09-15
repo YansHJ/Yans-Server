@@ -41,11 +41,15 @@ public class InitServer {
                 @Override
                 public void onData(SocketIOClient socketIOClient, String id, AckRequest ackRequest) throws Exception {
                     String ip = socketIOClient.getRemoteAddress().toString().split(":")[0];
-                    clients.put(ip,id);
+                    clients.put(id,ip);
+                    List<String> clientList = new ArrayList<>();
+                    for (Map.Entry<String, String> entry : clients.entrySet()) {
+                        clientList.add(entry.getKey());
+                    }
                     System.out.println("已收到客户端加入请求，正在发送 newConnect 请求，客户端id为：" + id);
                     Thread.sleep(1000);
-                    socketIOClient.sendEvent("newConnect",id);
-
+                    socketIOClient.sendEvent("initMe" + id,clientList);
+                    server.getBroadcastOperations().sendEvent("newConnect",id);
                 }
             });
             server.addEventListener("newConnectCompleted", Boolean.class, new DataListener<Boolean>() {
@@ -62,11 +66,15 @@ public class InitServer {
                     String ip = client.getRemoteAddress().toString().split(":")[0];
                     String now = TimeUtils.getNow();
                     System.out.println(now + ":   来自 " + ip + "的客户端离开");
-                    clients.remove(ip);
-                    //给客户端发送消息
-//					client.sendEvent("advert_info",ip +"客户端你好，我是服务端，期待下次和你见面");
                 }
             });
+            server.addEventListener("playerDisconnect", String.class, new DataListener<String>() {
+                @Override
+                public void onData(SocketIOClient socketIOClient, String clientId, AckRequest ackRequest) throws Exception {
+                    clients.remove(clientId);
+                }
+            });
+
             server.start();
 
             while (true){
@@ -74,10 +82,10 @@ public class InitServer {
                     Thread.sleep(2000);
                     List<String> clientList = new ArrayList<>();
                     for (Map.Entry<String, String> entry : clients.entrySet()) {
-                        clientList.add(entry.getValue());
+                        clientList.add(entry.getKey());
                     }
                     //广播消息
-                    server.getBroadcastOperations().sendEvent("playerNum",clients.entrySet().size());
+                    server.getBroadcastOperations().sendEvent("onlinePlayers",clientList);
                     System.out.println(clients.entrySet().size());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
