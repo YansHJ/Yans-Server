@@ -16,6 +16,7 @@ import java.util.Map;
 
 public class InitServer {
 
+    int a = 0;
     public void Server(){
         try {
             //客户端列表
@@ -32,7 +33,8 @@ public class InitServer {
                 public void onConnect(SocketIOClient socketIOClient) {
                     String ip = socketIOClient.getRemoteAddress().toString().split(":")[0];
                     String now = TimeUtils.getNow();
-                    System.out.println(now + ":   来自 " + ip + "的客户端进入");
+                    System.out.println(now + ":   来自 " + ip + "的客户端进入: " + a++);
+
                 }
             });
 
@@ -65,7 +67,8 @@ public class InitServer {
                 public void onDisconnect(SocketIOClient client) {
                     String ip = client.getRemoteAddress().toString().split(":")[0];
                     String now = TimeUtils.getNow();
-                    System.out.println(now + ":   来自 " + ip + "的客户端离开");
+                    a--;
+                    System.out.println(now + ":   来自 " + ip + "的客户端离开 : " + a);
                 }
             });
             server.addEventListener("playerDisconnect", String.class, new DataListener<String>() {
@@ -86,7 +89,7 @@ public class InitServer {
                     }
                     //广播消息
                     server.getBroadcastOperations().sendEvent("onlinePlayers",clientList);
-                    System.out.println(clients.entrySet().size());
+//                    System.out.println(clients.entrySet().size());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
