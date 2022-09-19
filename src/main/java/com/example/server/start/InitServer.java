@@ -8,6 +8,7 @@ import com.corundumstudio.socketio.listener.ConnectListener;
 import com.corundumstudio.socketio.listener.DataListener;
 import com.corundumstudio.socketio.listener.DisconnectListener;
 import com.example.server.utils.TimeUtils;
+import com.example.server.utils.UuidUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,26 +16,34 @@ import java.util.List;
 import java.util.Map;
 
 public class InitServer {
-
     int a = 0;
     public void Server(){
         try {
             //客户端列表
-            Map<String,String> clients = new HashMap<>();
+            Map<String,String> clientMap= new HashMap<>();
 
             Configuration config = new Configuration();
             config.setHostname("localhost");
             config.setPort(8080);
             SocketIOServer server = new SocketIOServer(config);
 
-            //客户端进入
+//            客户端进入
             server.addConnectListener(new ConnectListener() {
                 @Override
                 public void onConnect(SocketIOClient socketIOClient) {
-                    String ip = socketIOClient.getRemoteAddress().toString().split(":")[0];
-                    String now = TimeUtils.getNow();
-                    System.out.println(now + ":   来自 " + ip + "的客户端进入: " + a++);
-
+                    try {
+                        String ip = socketIOClient.getRemoteAddress().toString().split(":")[0];
+                        String now = TimeUtils.getNow();
+                        String clientId = UuidUtils.uuid16();
+                        System.out.println("|| ==========  " + now + ":   来自 " + ip + "的客户端进入: " + a++  + "  =========== ||");
+                        System.out.println("|| ==========  客户端id: " + clientId + "  =========== ||");
+                        Thread.sleep(500);
+                        socketIOClient.sendEvent("getClientId",clientId);
+                        clientMap.put(clientId,ip);
+                        server.getBroadcastOperations().sendEvent("newConnect",clientId);
+                    }catch (Exception e){
+                        System.out.println(e);
+                    }
                 }
             });
 
@@ -43,9 +52,9 @@ public class InitServer {
                 @Override
                 public void onData(SocketIOClient socketIOClient, String id, AckRequest ackRequest) throws Exception {
                     String ip = socketIOClient.getRemoteAddress().toString().split(":")[0];
-                    clients.put(id,ip);
+                    clientMap.put(id,ip);
                     List<String> clientList = new ArrayList<>();
-                    for (Map.Entry<String, String> entry : clients.entrySet()) {
+                    for (Map.Entry<String, String> entry : clientMap.entrySet()) {
                         clientList.add(entry.getKey());
                     }
                     System.out.println("已收到客户端加入请求，正在发送 newConnect 请求，客户端id为：" + id);
@@ -74,7 +83,7 @@ public class InitServer {
             server.addEventListener("playerDisconnect", String.class, new DataListener<String>() {
                 @Override
                 public void onData(SocketIOClient socketIOClient, String clientId, AckRequest ackRequest) throws Exception {
-                    clients.remove(clientId);
+                    clientMap.remove(clientId);
                 }
             });
 
@@ -84,7 +93,7 @@ public class InitServer {
                 try {
                     Thread.sleep(2000);
                     List<String> clientList = new ArrayList<>();
-                    for (Map.Entry<String, String> entry : clients.entrySet()) {
+                    for (Map.Entry<String, String> entry : clientMap.entrySet()) {
                         clientList.add(entry.getKey());
                     }
                     //广播消息
