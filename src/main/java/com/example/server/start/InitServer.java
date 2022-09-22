@@ -29,7 +29,7 @@ public class InitServer {
             Map<String,String> clientMap= new HashMap<>();
 
             Configuration config = new Configuration();
-            config.setHostname("localhost");
+            config.setHostname("0.0.0.0");
             config.setPort(7286);
             SocketIOServer server = new SocketIOServer(config);
             onlinePlayers = new ArrayList<>();
@@ -38,18 +38,18 @@ public class InitServer {
                 @Override
                 public void onConnect(SocketIOClient socketIOClient) {
                     try {
+                        //告知客户端当前在线的玩家信息
+                        socketIOClient.sendEvent("initOnlinePlayers",onlinePlayers);
+                        //来源ip
                         String ip = socketIOClient.getRemoteAddress().toString().split(":")[0];
                         String now = TimeUtils.getNow();
+                        //客户端ID生成
                         String clientId = socketIOClient.getSessionId().toString().replace("-","");
                         System.out.println("|| ==========  " + now + ":   来自 " + ip + "的客户端进入: " + ++a  + "  =========== ||");
                         System.out.println("|| ==========  客户端id: " + clientId + "  =========== ||");
                         System.out.println();
-                        Thread.sleep(500);
                         //告知客户端分配的clientId
                         socketIOClient.sendEvent("getClientId",clientId);
-                        //告知客户端当前在线的玩家信息
-                        socketIOClient.sendEvent("onlinePlayers",onlinePlayers);
-                        System.out.println("进入时：onlineSize : " + onlinePlayers.size());
                         clientMap.put(clientId,ip);
                         //初始化玩家并添加到在线列表
                         Player player = new Player();
@@ -58,12 +58,12 @@ public class InitServer {
                         player.setXx(1366/2);
                         player.setYy(768/2);
                         onlinePlayers.add(player);
-                        System.out.println("进入后：onlineSize : " + onlinePlayers.size());
                         //向所有人广播新加入的用户
                         server.getBroadcastOperations().sendEvent("newConnect",clientId);
+                        //
                         server.getBroadcastOperations().sendEvent("onlinePlayers",onlinePlayers);
                     }catch (Exception e){
-                        System.out.println("\\\\\\\\\\\\\\\\    :" + e);
+                        System.out.println(" |||||||||||||||||||||||||||||    " + e + "    |||||||||||||||||||||||||||||    ");
                     }
                 }
             });
@@ -72,12 +72,7 @@ public class InitServer {
             server.addEventListener("IMoved", Player.class, new DataListener<Player>() {
                 @Override
                 public void onData(SocketIOClient socketIOClient, Player player, AckRequest ackRequest) throws Exception {
-//                    System.out.println("客户端移动：");
-//                    System.out.println(player.getClientId());
-//                    System.out.println(player.getXx());
-//                    System.out.println(player.getYy());
-//                    System.out.println("======================");
-                    //向所有客户端广播移动的消息
+                    //向所有客户端广播玩家移动的消息
                     server.getBroadcastOperations().sendEvent("someoneMoved",player);
                     for (Player onlinePlayer : onlinePlayers) {
                         if (onlinePlayer.getClientId().equals(player.getClientId())){
@@ -105,7 +100,6 @@ public class InitServer {
                             System.out.println("onlineSize : " + onlinePlayers.size());
                         }
                     }
-
                     //广播客户端谁离开了
                     server.getBroadcastOperations().sendEvent("someoneLeveled",clientId);
                     //广播客户端当前在线的玩家信息
@@ -113,27 +107,11 @@ public class InitServer {
                 }
             });
 
-
-
             //启动服务
             server.start();
 
-            while (true){
-                try {
-                    Thread.sleep(2000);
-                    List<String> clientList = new ArrayList<>();
-                    for (Map.Entry<String, String> entry : clientMap.entrySet()) {
-                        clientList.add(entry.getKey());
-                    }
-                    //广播消息
-//                    server.getBroadcastOperations().sendEvent("onlinePlayers",clientList);
-//                    System.out.println(clients.entrySet().size());
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
         }catch (Exception e){
-            System.out.println(e);
+            System.out.println(" |||||||||||||||||||||||||||||    " + e + "    |||||||||||||||||||||||||||||    ");
         }
     }
 }
