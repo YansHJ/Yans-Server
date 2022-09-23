@@ -10,27 +10,51 @@ import com.corundumstudio.socketio.listener.DisconnectListener;
 import com.example.server.Player;
 import com.example.server.utils.TimeUtils;
 import com.example.server.utils.UuidUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Async("asyncServerExecutor")
 public class InitServer {
+    public InitServer(String hostName, int port) {
+        this.hostName = hostName;
+        this.port = port;
+    }
+
     int a = 0;
 
     /**
      * 在线用户列表
      */
     public List<Player> onlinePlayers;
+    /**
+     * 日志
+     */
+    private static final Logger logger = LoggerFactory.getLogger(InitServer.class);
+    /**
+     * 服务器地址
+     */
+
+    private final String hostName;
+    /**
+     * 服务器端口
+     */
+    private final int port;
+
+
     public void Server(){
         try {
             //客户端列表
-            Map<String,String> clientMap= new HashMap<>();
-
+            Map<String,String> clientMap = new HashMap<>();
             Configuration config = new Configuration();
-            config.setHostname("0.0.0.0");
-            config.setPort(7286);
+            config.setHostname(hostName);
+            config.setPort(port);
             SocketIOServer server = new SocketIOServer(config);
             onlinePlayers = new ArrayList<>();
            //客户端进入
@@ -45,9 +69,8 @@ public class InitServer {
                         String now = TimeUtils.getNow();
                         //客户端ID生成
                         String clientId = socketIOClient.getSessionId().toString().replace("-","");
-                        System.out.println("|| ==========  " + now + ":   来自 " + ip + "的客户端进入: " + ++a  + "  =========== ||");
-                        System.out.println("|| ==========  客户端id: " + clientId + "  =========== ||");
-                        System.out.println();
+                        logger.info("|| ==========  " + now + ":   Client from " + ip + " comes in: " + ++a  + "  =========== ||");
+                        logger.info("|| ==========  ClientId : " + clientId + "  =========== ||");
                         //告知客户端分配的clientId
                         socketIOClient.sendEvent("getClientId",clientId);
                         clientMap.put(clientId,ip);
@@ -60,10 +83,10 @@ public class InitServer {
                         onlinePlayers.add(player);
                         //向所有人广播新加入的用户
                         server.getBroadcastOperations().sendEvent("newConnect",clientId);
-                        //
+                        //广播当前在线用户
                         server.getBroadcastOperations().sendEvent("onlinePlayers",onlinePlayers);
                     }catch (Exception e){
-                        System.out.println(" |||||||||||||||||||||||||||||    " + e + "    |||||||||||||||||||||||||||||    ");
+                        logger.error(" |||||||||||||||||||||||||||||    " + e + "    |||||||||||||||||||||||||||||    ");
                     }
                 }
             });
@@ -92,12 +115,12 @@ public class InitServer {
                     String ip = client.getRemoteAddress().toString().split(":")[0];
                     String now = TimeUtils.getNow();
                     String clientId = client.getSessionId().toString().replace("-","");
-                    System.out.println("|| ==========  " + now + ":   来自 " + ip + "的客户端 离开: " + --a  + "  =========== ||");
-                    System.out.println("|| ==========  客户端id: " + clientId + "  =========== ||");
+                    logger.info("|| ==========  " + now + ":   Client from " + ip + " login out: " + ++a  + "  =========== ||");
+                    logger.info("|| ==========  ClientId : " + clientId + "  =========== ||");
                     for (int i = 0; i < onlinePlayers.size(); i++) {
                         if (onlinePlayers.get(i).getClientId().equals(clientId)){
                             onlinePlayers.remove(i);
-                            System.out.println("onlineSize : " + onlinePlayers.size());
+                            logger.info("onlineSize : " + onlinePlayers.size());
                         }
                     }
                     //广播客户端谁离开了
@@ -111,7 +134,7 @@ public class InitServer {
             server.start();
 
         }catch (Exception e){
-            System.out.println(" |||||||||||||||||||||||||||||    " + e + "    |||||||||||||||||||||||||||||    ");
+            logger.error(" |||||||||||||||||||||||||||||    " + e + "    |||||||||||||||||||||||||||||    ");
         }
     }
 }
