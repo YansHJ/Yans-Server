@@ -62,8 +62,6 @@ public class InitServer {
                 @Override
                 public void onConnect(SocketIOClient socketIOClient) {
                     try {
-                        //告知客户端当前在线的玩家信息
-                        socketIOClient.sendEvent("initOnlinePlayers",onlinePlayers);
                         //来源ip
                         String ip = socketIOClient.getRemoteAddress().toString().split(":")[0];
                         String now = TimeUtils.getNow();
@@ -81,6 +79,11 @@ public class InitServer {
                         player.setXx(1366/2);
                         player.setYy(768/2);
                         onlinePlayers.add(player);
+                        //告知客户端当前在线列表
+                        for (int i = 0; i < 20; i++) {
+                            socketIOClient.sendEvent("initOnlinePlayers",onlinePlayers);
+                            Thread.sleep(50);
+                        }
                         //向所有人广播新加入的用户
                         server.getBroadcastOperations().sendEvent("newConnect",clientId);
                         //广播当前在线用户
