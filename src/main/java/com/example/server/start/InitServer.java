@@ -8,10 +8,15 @@ import com.corundumstudio.socketio.listener.ConnectListener;
 import com.corundumstudio.socketio.listener.DataListener;
 import com.corundumstudio.socketio.listener.DisconnectListener;
 import com.example.server.Player;
+import com.example.server.entity.ScenePlayer;
+import com.example.server.enums.EventEnums;
+import com.example.server.enums.SceneEnums;
+import com.example.server.processor.HallProcessor;
 import com.example.server.utils.TimeUtils;
 import com.example.server.utils.UuidUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 
@@ -27,12 +32,12 @@ public class InitServer {
         this.port = port;
     }
 
+    /**
+     * 各房间在线玩家列表
+     */
+    private final ScenePlayer scenePlayer = new ScenePlayer();
     int a = 0;
 
-    /**
-     * 在线用户列表
-     */
-    public List<Player> onlinePlayers;
     /**
      * 日志
      */
@@ -46,18 +51,22 @@ public class InitServer {
      * 服务器端口
      */
     private final int port;
+    /**
+     * 客户端列表
+     */
+    Map<String,Player> clientMap = new HashMap<>();
 
 
     public void Server(){
+        initScenePlayers();
+
         try {
-            //客户端列表
-            Map<String,String> clientMap = new HashMap<>();
+
             Configuration config = new Configuration();
             config.setHostname(hostName);
             config.setPort(port);
             SocketIOServer server = new SocketIOServer(config);
-            onlinePlayers = new ArrayList<>();
-           //客户端进入
+           //客户端进入大厅
             server.addConnectListener(new ConnectListener() {
                 @Override
                 public void onConnect(SocketIOClient socketIOClient) {
@@ -70,41 +79,41 @@ public class InitServer {
                         logger.info("|| ==========  " + now + ":   Client from " + ip + " comes in: " + ++a  + "  =========== ||");
                         logger.info("|| ==========  ClientId : " + clientId + "  =========== ||");
                         //告知客户端分配的clientId
-                        socketIOClient.sendEvent("getClientId",clientId);
-                        clientMap.put(clientId,ip);
+                        socketIOClient.sendEvent(EventEnums.GET_CLIENT_ID.getName(),clientId);
                         //初始化玩家并添加到在线列表
                         Player player = new Player();
                         player.setClientId(clientId);
                         player.setConnectTime(now);
                         player.setXx(1366/2);
                         player.setYy(768/2);
-                        onlinePlayers.add(player);
-                        //告知客户端当前在线列表
-                        for (int i = 0; i < 20; i++) {
-                            socketIOClient.sendEvent("initOnlinePlayers",onlinePlayers);
-                            Thread.sleep(50);
-                        }
-                        //向所有人广播新加入的用户
-                        server.getBroadcastOperations().sendEvent("newConnect",clientId);
-                        //广播当前在线用户
-                        server.getBroadcastOperations().sendEvent("onlinePlayers",onlinePlayers);
+                        player.setScene(SceneEnums.HALL.getSceneNo());
+                        //更新大厅玩家列表
+                        Map<String, Player> hallPlayer = scenePlayer.getHallPlayer();
+                        hallPlayer.put(clientId,player);
+                        //更新玩家列表
+                        clientMap.put(clientId,player);
                     }catch (Exception e){
                         logger.error(" |||||||||||||||||||||||||||||    " + e + "    |||||||||||||||||||||||||||||    ");
                     }
                 }
             });
 
-            //监听客户端人物移动
-            server.addEventListener("IMoved", Player.class, new DataListener<Player>() {
+            //监听玩家进入房间
+            server.addEventListener("joinScene", Player.class, new DataListener<Player>() {
                 @Override
                 public void onData(SocketIOClient socketIOClient, Player player, AckRequest ackRequest) throws Exception {
-                    //向所有客户端广播玩家移动的消息
-                    server.getBroadcastOperations().sendEvent("someoneMoved",player);
-                    for (Player onlinePlayer : onlinePlayers) {
-                        if (onlinePlayer.getClientId().equals(player.getClientId())){
-                            onlinePlayer.setXx(player.getXx());
-                            onlinePlayer.setYy(player.getYy());
-                        }
+                    switch (player.getScene()){
+                        case 1 :new HallProcessor(socketIOClient,server,scenePlayer).join(player);break;
+                    }
+                }
+            });
+
+            //监听客户端人物移动
+            server.addEventListener(EventEnums.I_MOVED.getName(), Player.class, new DataListener<Player>() {
+                @Override
+                public void onData(SocketIOClient socketIOClient, Player player, AckRequest ackRequest) throws Exception {
+                    switch (player.getScene()){
+                        case 1 :new HallProcessor(socketIOClient,server,scenePlayer).moved(player);break;
                     }
                 }
             });
@@ -118,18 +127,13 @@ public class InitServer {
                     String ip = client.getRemoteAddress().toString().split(":")[0];
                     String now = TimeUtils.getNow();
                     String clientId = client.getSessionId().toString().replace("-","");
+                    Player player = clientMap.get(clientId);
+                    clientMap.remove(clientId);
                     logger.info("|| ==========  " + now + ":   Client from " + ip + " login out: " + ++a  + "  =========== ||");
                     logger.info("|| ==========  ClientId : " + clientId + "  =========== ||");
-                    for (int i = 0; i < onlinePlayers.size(); i++) {
-                        if (onlinePlayers.get(i).getClientId().equals(clientId)){
-                            onlinePlayers.remove(i);
-                            logger.info("onlineSize : " + onlinePlayers.size());
-                        }
+                    switch (player.getScene()){
+                        case 1 :new HallProcessor(null,server,scenePlayer).leveled(player);break;
                     }
-                    //广播客户端谁离开了
-                    server.getBroadcastOperations().sendEvent("someoneLeveled",clientId);
-                    //广播客户端当前在线的玩家信息
-                    server.getBroadcastOperations().sendEvent("onlinePlayers",onlinePlayers);
                 }
             });
 
@@ -139,5 +143,9 @@ public class InitServer {
         }catch (Exception e){
             logger.error(" |||||||||||||||||||||||||||||    " + e + "    |||||||||||||||||||||||||||||    ");
         }
+    }
+
+    private void initScenePlayers(){
+        scenePlayer.setHallPlayer(new HashMap<>());
     }
 }

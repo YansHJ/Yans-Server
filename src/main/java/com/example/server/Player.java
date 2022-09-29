@@ -1,5 +1,6 @@
 package com.example.server;
 
+import com.example.server.enums.SceneEnums;
 import lombok.Data;
 
 @Data
@@ -19,6 +20,11 @@ public class Player {
      * 坐标Y
      */
     private int yy;
+
+    /**
+     * 当前所在场景
+     */
+    private int scene;
 
     /**
      * 连接时间
