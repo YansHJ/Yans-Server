@@ -2,7 +2,7 @@ package com.example.server.processor;
 
 import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
-import com.example.server.Player;
+import com.example.server.entity.Player;
 import com.example.server.entity.ScenePlayer;
 import com.example.server.enums.EventEnums;
 import com.example.server.enums.SceneEnums;
@@ -10,19 +10,32 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 大厅处理器，监听事件
  */
 public class HallProcessor {
 
+    /**
+     * 日志
+     */
     Logger logger = LoggerFactory.getLogger(HallProcessor.class);
+    /**
+     * socket客户端
+     */
     private final SocketIOClient socketIOClient;
+    /**
+     * socket服务器
+     */
     private final SocketIOServer server;
+    /**
+     * 全局在线玩家
+     */
     private final ScenePlayer scenePlayer;
+    /**
+     * 当前场景名称
+     */
     private final static String SCENE_NAME = SceneEnums.HALL.getSceneName();
     public HallProcessor(SocketIOClient socketIOClient,SocketIOServer server,ScenePlayer scenePlayer) {
         this.socketIOClient = socketIOClient;
@@ -70,8 +83,13 @@ public class HallProcessor {
         String clientId = player.getClientId();
         scenePlayer.getHallPlayer().remove(clientId);
         List<Player> players = new ArrayList<>(scenePlayer.getHallPlayer().values());
-        //广播客户端谁离开了
-        server.getBroadcastOperations().sendEvent(EventEnums.SOMEONE_LEVELED.getName() + "_" + SCENE_NAME,clientId);
+        if (player.getNowScene() != player.getNextScene()){
+            //广播前往其他房间
+            server.getBroadcastOperations().sendEvent(EventEnums.SOMEONE_LEVEL_ROOM.getName() + "_" + SCENE_NAME,clientId);
+        }else {
+            //广播客户端谁离开了
+            server.getBroadcastOperations().sendEvent(EventEnums.SOMEONE_LEVELED.getName() + "_" + SCENE_NAME,clientId);
+        }
         //广播客户端当前在线的玩家信息
         server.getBroadcastOperations().sendEvent(EventEnums.ONLINE_PLAYERS.getName() + "_" + SCENE_NAME,players);
     }

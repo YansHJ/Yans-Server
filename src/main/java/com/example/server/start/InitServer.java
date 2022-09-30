@@ -7,22 +7,17 @@ import com.corundumstudio.socketio.SocketIOServer;
 import com.corundumstudio.socketio.listener.ConnectListener;
 import com.corundumstudio.socketio.listener.DataListener;
 import com.corundumstudio.socketio.listener.DisconnectListener;
-import com.example.server.Player;
+import com.example.server.entity.Player;
 import com.example.server.entity.ScenePlayer;
 import com.example.server.enums.EventEnums;
 import com.example.server.enums.SceneEnums;
 import com.example.server.processor.HallProcessor;
 import com.example.server.utils.TimeUtils;
-import com.example.server.utils.UuidUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Async("asyncServerExecutor")
@@ -86,7 +81,8 @@ public class InitServer {
                         player.setConnectTime(now);
                         player.setXx(1366/2);
                         player.setYy(768/2);
-                        player.setScene(SceneEnums.HALL.getSceneNo());
+                        player.setNowScene(SceneEnums.HALL.getSceneNo());
+                        player.setNextScene(SceneEnums.HALL.getSceneNo());
                         //更新大厅玩家列表
                         Map<String, Player> hallPlayer = scenePlayer.getHallPlayer();
                         hallPlayer.put(clientId,player);
@@ -102,7 +98,7 @@ public class InitServer {
             server.addEventListener("joinScene", Player.class, new DataListener<Player>() {
                 @Override
                 public void onData(SocketIOClient socketIOClient, Player player, AckRequest ackRequest) throws Exception {
-                    switch (player.getScene()){
+                    switch (player.getNowScene()){
                         case 1 :new HallProcessor(socketIOClient,server,scenePlayer).join(player);break;
                     }
                 }
@@ -112,7 +108,7 @@ public class InitServer {
             server.addEventListener(EventEnums.I_MOVED.getName(), Player.class, new DataListener<Player>() {
                 @Override
                 public void onData(SocketIOClient socketIOClient, Player player, AckRequest ackRequest) throws Exception {
-                    switch (player.getScene()){
+                    switch (player.getNowScene()){
                         case 1 :new HallProcessor(socketIOClient,server,scenePlayer).moved(player);break;
                     }
                 }
@@ -131,8 +127,18 @@ public class InitServer {
                     clientMap.remove(clientId);
                     logger.info("|| ==========  " + now + ":   Client from " + ip + " login out: " + ++a  + "  =========== ||");
                     logger.info("|| ==========  ClientId : " + clientId + "  =========== ||");
-                    switch (player.getScene()){
+                    switch (player.getNowScene()){
                         case 1 :new HallProcessor(null,server,scenePlayer).leveled(player);break;
+                    }
+                }
+            });
+
+            //监听离开房间
+            server.addEventListener(EventEnums.SOMEONE_LEVEL_ROOM.getName(), Player.class, new DataListener<Player>() {
+                @Override
+                public void onData(SocketIOClient socketIOClient, Player player, AckRequest ackRequest) throws Exception {
+                    switch (player.getNowScene()){
+                        case 1 :new HallProcessor(socketIOClient,server,scenePlayer).leveled(player);break;
                     }
                 }
             });

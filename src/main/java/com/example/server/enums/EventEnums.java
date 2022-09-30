@@ -15,7 +15,9 @@ public enum EventEnums {
 
     SOMEONE_MOVED("someoneMoved"),
 
-    SOMEONE_LEVELED("someoneLeveled");
+    SOMEONE_LEVELED("someoneLeveled"),
+
+    SOMEONE_LEVEL_ROOM("someoneLevelRoom");
 
     @Getter
     private final String name;

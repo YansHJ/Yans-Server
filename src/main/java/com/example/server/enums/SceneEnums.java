@@ -7,7 +7,8 @@ import lombok.Getter;
  */
 public enum SceneEnums {
 
-    HALL("HALL",1);
+    HALL("HALL",1),
+    FOOTBALL_FIELD("FOOTBALLFIELD",2);
 
     @Getter
     private final String sceneName;

@@ -1,4 +1,4 @@
-package com.example.server;
+package com.example.server.entity;
 
 import com.example.server.enums.SceneEnums;
 import lombok.Data;
@@ -24,7 +24,12 @@ public class Player {
     /**
      * 当前所在场景
      */
-    private int scene;
+    private int nowScene;
+
+    /**
+     * 将要去的场景
+     */
+    private int nextScene;
 
     /**
      * 连接时间
