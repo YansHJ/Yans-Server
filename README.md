@@ -1,4 +1,4 @@
-# Yans-Server
+# Yans-Server(已关闭，转用Unity开发)
 
 #### 使用SpringBoot + socket.io 搭建的简单尝试性地多人联机游戏的服务器
 
